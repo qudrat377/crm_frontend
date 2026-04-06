@@ -1,0 +1,863 @@
+# ═══════════════════════════════════════════════════════════════════
+#   EduCRM — AWS Ubuntu Serverga To'liq Deploy Qo'llanmasi
+#   Server: 44.222.116.206  |  Domen: somad.uz
+#   Backend: NestJS + PostgreSQL  |  Frontend: Next.js 15
+#   CI/CD: GitHub Actions  |  Web server: Nginx
+# ═══════════════════════════════════════════════════════════════════
+#
+#   MUHIM: Bu yerda $ belgisi terminal buyrug'i degani
+#          # belgisi izoh (uni yozmang)
+#          <...> yozilgan joylarni o'z ma'lumotlaringiz bilan almashtiring
+#
+# ═══════════════════════════════════════════════════════════════════
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  QISM 1 — GITHUB REPOSITORYLARINI TAYYORLASH (Kompyuteringizda)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1.1  GitHub'da 2 ta repository yarating:
+     ► github.com ga kiring → "New repository" tugmasini bosing
+     ► Birinchi repo:  educrm-backend    (Private yoki Public — siz bilasiz)
+     ► Ikkinchi repo:  educrm-frontend   (Private yoki Public)
+     ► Har ikkalasida README qo'shmang (bo'sh qoldiring)
+
+1.2  Backend loyihasini githubga yuklash:
+     Kompyuteringizda backend papkasiga kiring (crm-typeorm papkasi)
+
+     $ cd /path/to/crm-typeorm        ← o'z yo'lingizni yozing
+     $ git init
+     $ git add .
+     $ git commit -m "initial commit"
+     $ git branch -M main
+     $ git remote add origin https://github.com/<SIZNING_USERNAME>/educrm-backend.git
+     $ git push -u origin main
+
+1.3  Frontend loyihasini githubga yuklash:
+     Kompyuteringizda frontend papkasiga kiring
+
+     $ cd /path/to/crm-frontend        ← o'z yo'lingizni yozing
+     $ git init
+     $ git add .
+     $ git commit -m "initial commit"
+     $ git branch -M main
+     $ git remote add origin https://github.com/<SIZNING_USERNAME>/educrm-frontend.git
+     $ git push -u origin main
+
+     ✅ Ikkala repo ham githubda paydo bo'ldi
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  QISM 2 — AWS SERVERGA KIRISH VA TAYYORLASH
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+2.1  AWS console'dan SSH key (.pem fayl) bor bo'lsa:
+     Kompyuteringizdan terminalda:
+
+     $ ssh -i /path/to/your-key.pem ubuntu@44.222.116.206
+
+     ⚠️  Agar "Permission denied (publickey)" xatosi chiqsa:
+     $ chmod 400 /path/to/your-key.pem
+     $ ssh -i /path/to/your-key.pem ubuntu@44.222.116.206
+
+2.2  Serverga kirdingiz! Endi server ubuntu foydalanuvchisi bilan ishlaysiz.
+     Quyidagilarni ketma-ket bajaring:
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  QISM 3 — SERVERNI YANGILASH VA ASOSIY DASTURLARNI O'RNATISH
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⚑  HOZIR: Siz ubuntu@44.222.116.206 serverida ishlayapsiz
+   Har bir buyruqni yozib, Enter bosing. Birini tugatmasdan keyingisini boshlamang.
+
+3.1  Sistemani yangilash:
+
+     $ sudo apt update && sudo apt upgrade -y
+
+     ⏳ Bu 1-3 daqiqa ketishi mumkin. Tugaguncha kuting.
+     Agar "GRUB update" oynasi chiqsa — Enter bosib davom eting.
+
+3.2  Kerakli asosiy paketlarni o'rnatish:
+
+     $ sudo apt install -y curl git nginx certbot python3-certbot-nginx ufw build-essential
+
+     ⏳ Bu ham 1-2 daqiqa kutish kerak.
+
+3.3  Node.js 20 LTS o'rnatish (NestJS va Next.js uchun):
+
+     $ curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+
+     $ sudo apt install -y nodejs
+
+     # Versiyani tekshiring — 20.x chiqishi kerak:
+     $ node --version
+     # Javob ko'rinishi: v20.x.x  ✅
+
+     $ npm --version
+     # Javob ko'rinishi: 10.x.x   ✅
+
+3.4  PM2 o'rnatish (Node.js jarayonlarini boshqaradi):
+
+     $ sudo npm install -g pm2
+
+     # Tekshirish:
+     $ pm2 --version
+     # Javob: 5.x.x   ✅
+
+3.5  PostgreSQL o'rnatish:
+
+     $ sudo apt install -y postgresql postgresql-contrib
+
+     # PostgreSQL ishga tushirilganini tekshirish:
+     $ sudo systemctl status postgresql
+     # "active (running)" ko'rinishi kerak   ✅
+     # Chiqish uchun: q tugmasini bosing
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  QISM 4 — POSTGRESQL MA'LUMOTLAR BAZASINI SOZLASH
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⚑  HOZIR: Siz hali ubuntu@44.222.116.206 serverida ishlayapsiz
+
+4.1  PostgreSQL'ga kirish:
+
+     $ sudo -u postgres psql
+
+     # Endi psql konsolida ishlaysiz (# belgisi ko'rinadi)
+
+4.2  Database va foydalanuvchi yaratish:
+     ⚠️  <STRONG_PASSWORD> o'rniga HAQIQIY kuchli parol yozing! (masalan: MySecure@Pass2024)
+     Bu parolni ESLAB QOLING — keyinroq kerak bo'ladi.
+
+     postgres=# CREATE USER crm_user WITH PASSWORD '<STRONG_PASSWORD>';
+     postgres=# CREATE DATABASE crm_db OWNER crm_user;
+     postgres=# GRANT ALL PRIVILEGES ON DATABASE crm_db TO crm_user;
+     postgres=# \q
+
+     # \q — psql'dan chiqish
+
+4.3  PostgreSQL ulanishini tekshirish:
+
+     $ psql -U crm_user -d crm_db -h localhost
+     # Parolingizni so'raydi — yozing
+
+     crm_db=> \l
+     # Bazalar ro'yxati chiqishi kerak  ✅
+
+     crm_db=> \q
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  QISM 5 — DEPLOYMENT FOYDALANUVCHISI VA PAPKALARNI TAYYORLASH
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⚑  HOZIR: Siz ubuntu@44.222.116.206 serverida ishlayapsiz
+
+5.1  Loyiha papkalarini yaratish:
+
+     $ sudo mkdir -p /var/www/educrm-backend
+     $ sudo mkdir -p /var/www/educrm-frontend
+     $ sudo chown -R ubuntu:ubuntu /var/www/educrm-backend
+     $ sudo chown -R ubuntu:ubuntu /var/www/educrm-frontend
+
+5.2  GitHub Actions uchun SSH kalit juftini yaratish:
+     Bu kalit serverga avtomatik kirisni ta'minlaydi.
+
+     $ ssh-keygen -t ed25519 -C "github-actions-deploy" -f ~/.ssh/deploy_key -N ""
+
+     # Ochiq kalitni ko'rish:
+     $ cat ~/.ssh/deploy_key.pub
+
+     # Bu matnni NUSXALAB OLING (ssh-ed25519 AAAA... bilan boshlanadi)
+     # Keyinroq GitHub'ga qo'shish kerak bo'ladi
+
+5.3  Ochiq kalitni authorized_keys'ga qo'shish:
+
+     $ cat ~/.ssh/deploy_key.pub >> ~/.ssh/authorized_keys
+     $ chmod 600 ~/.ssh/authorized_keys
+     $ chmod 700 ~/.ssh
+
+5.4  Maxfiy kalitni ko'rish (GitHub Secrets'ga kerak):
+
+     $ cat ~/.ssh/deploy_key
+
+     # Bu matnni nusxalab oling — -----BEGIN OPENSSH PRIVATE KEY----- dan
+     # -----END OPENSSH PRIVATE KEY----- gacha hamma narsani
+
+     ⚠️  BU KALITNI HECH KIMGA BERMANG!
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  QISM 6 — GITHUB SECRETS SOZLASH
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⚑  HOZIR: Brauzerda GitHub'ga o'ting
+
+6.1  Backend repository uchun Secrets qo'shish:
+     ► github.com/<USERNAME>/educrm-backend ga o'ting
+     ► "Settings" → "Secrets and variables" → "Actions" → "New repository secret"
+
+     Quyidagi secretlarni birma-bir qo'shing:
+
+     Name: SSH_PRIVATE_KEY
+     Value: (5.4-qadamda nusxalagan maxfiy kalit — butun matn)
+
+     Name: SSH_HOST
+     Value: 44.222.116.206
+
+     Name: SSH_USER
+     Value: ubuntu
+
+     Name: DEPLOY_PATH
+     Value: /var/www/educrm-backend
+
+     Name: DB_PASSWORD
+     Value: (4.2-qadamda o'rnatgan parolingiz)
+
+     Name: JWT_SECRET
+     Value: (kamida 32 ta tasodifiy belgi, masalan: your-super-secret-jwt-key-here-2024)
+
+     Name: JWT_REFRESH_SECRET
+     Value: (boshqa tasodifiy 32 ta belgi)
+
+6.2  Frontend repository uchun Secrets qo'shish:
+     ► github.com/<USERNAME>/educrm-frontend ga o'ting
+     ► "Settings" → "Secrets and variables" → "Actions" → "New repository secret"
+
+     Name: SSH_PRIVATE_KEY
+     Value: (5.4-qadamda nusxalagan o'sha kalit)
+
+     Name: SSH_HOST
+     Value: 44.222.116.206
+
+     Name: SSH_USER
+     Value: ubuntu
+
+     Name: DEPLOY_PATH
+     Value: /var/www/educrm-frontend
+
+     Name: NEXT_PUBLIC_API_URL
+     Value: https://api.somad.uz/api/v1
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  QISM 7 — BACKEND .ENV FAYLINI SERVERDA YARATISH
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⚑  HOZIR: Siz ubuntu@44.222.116.206 serverida ishlayapsiz
+
+7.1  Backend .env fayli yaratish:
+
+     $ nano /var/www/educrm-backend/.env
+
+     # Quyidagi matnni yozing (<...> o'rniga o'z ma'lumotlaringizni qo'ying):
+
+     NODE_ENV=production
+     PORT=3000
+
+     DB_HOST=localhost
+     DB_PORT=5432
+     DB_USERNAME=crm_user
+     DB_PASSWORD=<4.2-qadamdagi_parol>
+     DB_DATABASE=crm_db
+
+     JWT_SECRET=<kamida_32_ta_tasodifiy_belgi>
+     JWT_EXPIRES_IN=15m
+     JWT_REFRESH_SECRET=<boshqa_32_ta_tasodifiy_belgi>
+     JWT_REFRESH_EXPIRES_IN=7d
+
+     BCRYPT_ROUNDS=12
+     CORS_ORIGIN=https://somad.uz
+
+     # Saqlash: Ctrl+O → Enter → Ctrl+X
+
+7.2  .env faylini himoyalash (faqat ubuntu o'qiy olsin):
+
+     $ chmod 600 /var/www/educrm-backend/.env
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  QISM 8 — GITHUB ACTIONS WORKFLOW FAYLLARINI YARATISH
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⚑  HOZIR: Kompyuteringizda backend loyiha papkasida ishlaysiz
+
+8.1  Backend uchun GitHub Actions workflow:
+
+     $ mkdir -p .github/workflows
+     $ nano .github/workflows/deploy.yml
+
+     # Quyidagi BUTUN matnni nusxalab yozing:
+
+─────────────────────────────────────────────────────────────────────
+name: Deploy Backend
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build project
+        run: npm run build
+
+      - name: Deploy to server via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd /var/www/educrm-backend
+
+            # Kodni olish
+            git pull origin main
+
+            # Dependencylarni o'rnatish
+            npm ci --omit=dev
+
+            # Build qilish
+            npm run build
+
+            # PM2 bilan qayta ishga tushirish
+            pm2 restart educrm-backend --update-env || pm2 start dist/main.js --name educrm-backend
+
+            # PM2 konfiguratsiyasini saqlash
+            pm2 save
+
+            echo "✅ Backend deploy muvaffaqiyatli!"
+─────────────────────────────────────────────────────────────────────
+
+     # Saqlash: Ctrl+O → Enter → Ctrl+X
+
+     # Faylni commit qiling:
+     $ git add .github/
+     $ git commit -m "add GitHub Actions deploy workflow"
+     $ git push origin main
+
+─────────────────────────────────────────────────────────────────────
+
+8.2  Frontend uchun GitHub Actions workflow:
+     ⚑  HOZIR: Kompyuteringizda frontend loyiha papkasiga o'ting
+
+     $ mkdir -p .github/workflows
+     $ nano .github/workflows/deploy.yml
+
+     # Quyidagi matnni yozing:
+
+─────────────────────────────────────────────────────────────────────
+name: Deploy Frontend
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build project
+        env:
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
+        run: npm run build
+
+      - name: Deploy to server via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd /var/www/educrm-frontend
+
+            # Kodni olish
+            git pull origin main
+
+            # Dependencylarni o'rnatish
+            npm ci
+
+            # Build qilish
+            NEXT_PUBLIC_API_URL=https://api.somad.uz/api/v1 npm run build
+
+            # PM2 bilan qayta ishga tushirish
+            pm2 restart educrm-frontend --update-env || pm2 start npm --name educrm-frontend -- start
+
+            # PM2 saqlash
+            pm2 save
+
+            echo "✅ Frontend deploy muvaffaqiyatli!"
+─────────────────────────────────────────────────────────────────────
+
+     # Saqlash: Ctrl+O → Enter → Ctrl+X
+
+     $ git add .github/
+     $ git commit -m "add GitHub Actions deploy workflow"
+     $ git push origin main
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  QISM 9 — SERVERDA LOYIHALARNI BIRINCHI MARTA KLONLASH
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⚑  HOZIR: Siz ubuntu@44.222.116.206 serverida ishlayapsiz
+
+9.1  Backend loyihasini klonlash:
+
+     $ cd /var/www/educrm-backend
+     $ git clone https://github.com/<USERNAME>/educrm-backend.git .
+
+     ⚠️  "." nuqtasini unutmang — joriy papkaga klonlash uchun kerak
+
+9.2  Backend dependencylarni o'rnatish va build qilish:
+
+     $ npm ci
+     $ npm run build
+
+     ⏳ Bu 1-2 daqiqa ketishi mumkin
+
+9.3  Bazani sinxronlashtirish (jadvallar yaratiladi):
+     NestJS synchronize: true qilib qo'yilgan bo'lsa, birinchi ishga tushirishda
+     jadvallar avtomatik yaratiladi. Yoki migration'ni ishga tushiring:
+
+     $ npm run migration:run
+
+     ⚠️  Agar xato chiqsa, .env to'g'ri sozlanganligini tekshiring
+
+9.4  Backend'ni PM2 bilan ishga tushirish:
+
+     $ pm2 start dist/main.js --name educrm-backend
+     $ pm2 save
+     $ pm2 status
+
+     # "online" holati ko'rinishi kerak  ✅
+
+9.5  Backend ishlayotganini tekshirish:
+
+     $ curl http://localhost:3000/api/v1
+     # Biror javob kelishi kerak (xatolik yoki JSON)  ✅
+
+─────────────────────────────────────────────────────────────────────
+
+9.6  Frontend loyihasini klonlash:
+
+     $ cd /var/www/educrm-frontend
+     $ git clone https://github.com/<USERNAME>/educrm-frontend.git .
+
+9.7  Frontend dependencylarni o'rnatish va build qilish:
+
+     $ npm ci
+     $ NEXT_PUBLIC_API_URL=https://api.somad.uz/api/v1 npm run build
+
+     ⏳ Bu 2-5 daqiqa ketishi mumkin
+
+9.8  Frontend'ni PM2 bilan ishga tushirish:
+
+     $ pm2 start npm --name educrm-frontend -- start
+     $ pm2 save
+     $ pm2 status
+
+     # Ikki jarayon ham "online" ko'rinishi kerak  ✅
+
+9.9  PM2 server reboot qilinsa avtomatik ishga tushishini sozlash:
+
+     $ pm2 startup systemd -u ubuntu --hp /home/ubuntu
+
+     # Bu buyruq sizga bitta sudo buyrug'ini chiqaradi, masalan:
+     # sudo env PATH=... pm2 startup systemd ...
+     # O'SHA chiqgan buyruqni nusxalab, quyida ishga tushiring:
+
+     $ sudo env PATH=$PATH:/usr/bin /usr/lib/node_modules/pm2/bin/pm2 startup systemd -u ubuntu --hp /home/ubuntu
+
+     $ pm2 save
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  QISM 10 — NGINX SOZLASH
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⚑  HOZIR: Siz ubuntu@44.222.116.206 serverida ishlayapsiz
+
+10.1  Backend uchun Nginx konfiguratsiyasi yaratish:
+
+      $ sudo nano /etc/nginx/sites-available/api.somad.uz
+
+      # Quyidagi matnni yozing:
+
+──────────────────────────────────────────────────────────────────────
+server {
+    listen 80;
+    server_name api.somad.uz;
+
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+        proxy_read_timeout 120s;
+        proxy_connect_timeout 120s;
+    }
+}
+──────────────────────────────────────────────────────────────────────
+
+      # Saqlash: Ctrl+O → Enter → Ctrl+X
+
+10.2  Frontend uchun Nginx konfiguratsiyasi yaratish:
+
+      $ sudo nano /etc/nginx/sites-available/somad.uz
+
+      # Quyidagi matnni yozing:
+
+──────────────────────────────────────────────────────────────────────
+server {
+    listen 80;
+    server_name somad.uz www.somad.uz;
+
+    location / {
+        proxy_pass http://localhost:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+──────────────────────────────────────────────────────────────────────
+
+      # Saqlash: Ctrl+O → Enter → Ctrl+X
+
+10.3  Konfiguratsiyalarni faollashtirish:
+
+      $ sudo ln -s /etc/nginx/sites-available/api.somad.uz /etc/nginx/sites-enabled/
+      $ sudo ln -s /etc/nginx/sites-available/somad.uz /etc/nginx/sites-enabled/
+
+      # Default konfiguratsiyani o'chirish (port 80 ziddiyatini oldini olish):
+      $ sudo rm -f /etc/nginx/sites-enabled/default
+
+10.4  Nginx konfiguratsiyasini tekshirish:
+
+      $ sudo nginx -t
+
+      # "syntax is ok" va "test is successful" chiqishi kerak  ✅
+      # Agar xato chiqsa — konfiguratsiya faylni qayta tekshiring
+
+10.5  Nginx'ni qayta ishga tushirish:
+
+      $ sudo systemctl reload nginx
+      $ sudo systemctl status nginx
+      # "active (running)" ko'rinishi kerak  ✅
+
+10.6  Frontend portini 3001 ga o'zgartirish:
+      Next.js default 3000 portda ishlaydi, lekin backend ham 3000'da.
+      Frontend uchun PM2'ni to'xtatib qayta sozlang:
+
+      $ pm2 delete educrm-frontend
+      $ cd /var/www/educrm-frontend
+      $ pm2 start npm --name educrm-frontend -- start -- -p 3001
+      $ pm2 save
+
+      # YOKI package.json'da start scriptni o'zgartirish:
+      $ nano /var/www/educrm-frontend/package.json
+      # "start": "next start -p 3001"   deb o'zgartiring
+      # Saqlash: Ctrl+O → Enter → Ctrl+X
+
+      $ pm2 restart educrm-frontend
+      $ pm2 save
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  QISM 11 — DOMEN DNS SOZLASH
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⚑  HOZIR: Brauzerda domen provayder panelida ishlaysiz (somad.uz registrar)
+
+11.1  DNS A record'larini qo'shish:
+      somad.uz domeningizni boshqaradigan DNS panel'ga kiring
+      (NIC.UZ, Beget, Reg.ru, yoki boshqa)
+
+      Quyidagi yozuvlarni qo'shing:
+
+      Tur    Nom              Manzil             TTL
+      ────   ───────────────  ─────────────────  ────
+      A      @                44.222.116.206     300
+      A      www              44.222.116.206     300
+      A      api              44.222.116.206     300
+
+      ⏳ DNS tarqalishi 5-30 daqiqa (ba'zan 24 soat) ketishi mumkin.
+
+11.2  DNS tarqalganini tekshirish (kompyuteringizdan):
+
+      $ ping somad.uz
+      # 44.222.116.206 dan javob kelishi kerak  ✅
+
+      $ ping api.somad.uz
+      # 44.222.116.206 dan javob kelishi kerak  ✅
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  QISM 12 — SSL SERTIFIKAT (HTTPS) O'RNATISH
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⚑  HOZIR: Siz ubuntu@44.222.116.206 serverida ishlayapsiz
+   ⚠️  Bu qadamni DNS tarqalganidan keyin bajaring!
+
+12.1  SSL sertifikat olish (Let's Encrypt — bepul):
+
+      $ sudo certbot --nginx -d somad.uz -d www.somad.uz
+
+      # Sizdan quyidagilar so'raladi:
+      # 1. Email manzil → o'z emailingizni yozing
+      # 2. Terms of service → A (agree)
+      # 3. Newsletter → N (no)
+
+      ✅ Muvaffaqiyatli bo'lsa "Congratulations!" xabari chiqadi
+
+12.2  API subdomen uchun SSL:
+
+      $ sudo certbot --nginx -d api.somad.uz
+
+12.3  SSL avtomatik yangilanishini tekshirish:
+
+      $ sudo certbot renew --dry-run
+      # "Congratulations, all simulated renewals succeeded!" chiqishi kerak  ✅
+
+12.4  Nginx'ni qayta yuklash:
+
+      $ sudo systemctl reload nginx
+
+12.5  Tekshirish:
+      Brauzerda oching: https://somad.uz
+      ✅ Yashil qulf belgisi ko'rinishi kerak!
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  QISM 13 — FIREWALL SOZLASH (UFW)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⚑  HOZIR: Siz ubuntu@44.222.116.206 serverida ishlayapsiz
+
+13.1  Ruxsat berilgan portlarni sozlash:
+
+      $ sudo ufw allow OpenSSH
+      $ sudo ufw allow 'Nginx Full'
+
+      # Nginx Full = port 80 (HTTP) + 443 (HTTPS)
+
+13.2  Firewall'ni yoqish:
+
+      $ sudo ufw enable
+      # "y" deb tasdiqlang
+
+13.3  Holat tekshirish:
+
+      $ sudo ufw status verbose
+
+      # Ko'rinishi:
+      # 22/tcp    ALLOW IN  (SSH)
+      # 80/tcp    ALLOW IN  (HTTP)
+      # 443/tcp   ALLOW IN  (HTTPS)  ✅
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  QISM 14 — BIRINCHI ADMIN FOYDALANUVCHI YARATISH
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⚑  HOZIR: Siz ubuntu@44.222.116.206 serverida ishlayapsiz
+
+14.1  Backend API orqali admin yaratish:
+
+      $ curl -X POST https://api.somad.uz/api/v1/auth/register \
+        -H "Content-Type: application/json" \
+        -d '{
+          "email": "admin@somad.uz",
+          "password": "AdminPass123!",
+          "role": "admin"
+        }'
+
+      # Javobda accessToken ko'rinishi kerak  ✅
+
+14.2  Login bo'lishni tekshirish:
+
+      $ curl -X POST https://api.somad.uz/api/v1/auth/login \
+        -H "Content-Type: application/json" \
+        -d '{
+          "email": "admin@somad.uz",
+          "password": "AdminPass123!"
+        }'
+
+      # accessToken va user ma'lumotlari qaytishi kerak  ✅
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  QISM 15 — HAMMASI ISHLAYOTGANINI YAKUNIY TEKSHIRISH
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⚑  HOZIR: Server va brauzerda
+
+15.1  Serverda PM2 holati:
+
+      $ pm2 status
+
+      # Ko'rinishi kerak:
+      # ┌─ educrm-backend   online  ─┐
+      # └─ educrm-frontend  online  ─┘   ✅
+
+15.2  Nginx holati:
+
+      $ sudo systemctl status nginx
+      # active (running)  ✅
+
+15.3  Brauzerda:
+
+      https://somad.uz                    → Frontend ochilib kirish sahifasi ko'rinadi  ✅
+      https://api.somad.uz/api/v1/docs    → Swagger UI ochiladi  ✅
+
+15.4  Loglarni ko'rish (agar biror narsa ishlamasa):
+
+      $ pm2 logs educrm-backend --lines 50
+      $ pm2 logs educrm-frontend --lines 50
+      $ sudo nginx -t
+      $ sudo tail -n 50 /var/log/nginx/error.log
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  QISM 16 — CI/CD TEKSHIRISH (GitHub Actions)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⚑  HOZIR: Kompyuteringizda
+
+16.1  Backend'da biror o'zgarish qilib push qiling:
+
+      $ cd /path/to/crm-typeorm
+      $ echo "# deployed" >> README.md
+      $ git add .
+      $ git commit -m "test CI/CD"
+      $ git push origin main
+
+16.2  GitHub'da Actions ni kuzating:
+
+      ► github.com/<USERNAME>/educrm-backend → "Actions" tab
+      ► Yangi workflow ishlayotganini ko'rasiz
+      ► ✅ yashil chiqishi kerak (1-2 daqiqa)
+
+16.3  Server loglarida yangilanishni tekshirish:
+
+      $ pm2 logs educrm-backend --lines 10
+
+      # "✅ Backend deploy muvaffaqiyatli!" xabari ko'rinishi kerak  ✅
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  QISM 17 — TEZKOR MUAMMO YECHIMLARI
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+MUAMMO: pm2 logs da "Cannot connect to database" xatosi
+  YECHIM:
+    $ sudo systemctl status postgresql
+    # Agar to'xtagan bo'lsa:
+    $ sudo systemctl start postgresql
+    # .env da DB_PASSWORD to'g'riligini tekshiring
+    $ cat /var/www/educrm-backend/.env
+
+MUAMMO: Nginx "502 Bad Gateway" xatosi
+  YECHIM:
+    $ pm2 status
+    # Agar "errored" yoki "stopped" bo'lsa:
+    $ pm2 restart educrm-backend
+    $ pm2 restart educrm-frontend
+    $ sudo nginx -t && sudo systemctl reload nginx
+
+MUAMMO: SSL sertifikat olmayapti
+  YECHIM:
+    # DNS hali tarqalmagan bo'lishi mumkin, kuting
+    $ nslookup somad.uz
+    # 44.222.116.206 ko'rinishi kerak
+    # Ko'rinsagina certbot ishga tushiring
+
+MUAMMO: GitHub Actions "Permission denied" xatosi
+  YECHIM:
+    # SSH kalit to'g'ri qo'shilmagandir
+    # 5.4 qadamni qaytaring va GitHub Secrets'ni yangilang
+    $ cat ~/.ssh/deploy_key   # serverdagi kalit
+    # Bu kalitni SSH_PRIVATE_KEY secretiga qo'ying
+
+MUAMMO: "git clone" da "already exists" xatosi
+  YECHIM:
+    $ ls /var/www/educrm-backend/
+    # Agar papka bo'sh bo'lmasa:
+    $ rm -rf /var/www/educrm-backend/*
+    $ rm -rf /var/www/educrm-backend/.git
+    $ git clone ... .
+
+MUAMMO: Next.js 3000 portda ishlayapti backend bilan to'qnashmoqda
+  YECHIM:
+    $ pm2 delete educrm-frontend
+    $ cd /var/www/educrm-frontend
+    # package.json ni oching va start ni o'zgartiring:
+    $ sed -i 's/"start": "next start"/"start": "next start -p 3001"/' package.json
+    $ pm2 start npm --name educrm-frontend -- start
+    $ pm2 save
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  XULOSA — DEPLOY TARTIB RAQAMLARI
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  1.  GitHub'da 2 repo yarating (kompyuter)
+  2.  Backend va frontendni githubga push qiling (kompyuter)
+  3.  Serverga SSH bilan kiring (kompyuter → server)
+  4.  apt update + kerakli dasturlarni o'rnating (server)
+  5.  PostgreSQL sozlang, baza yarating (server)
+  6.  Papkalar yarating, SSH deploy kaliti oling (server)
+  7.  GitHub Secrets qo'shing — 2 repoga ham (brauzer)
+  8.  .env faylini serverda yarating (server)
+  9.  Workflow fayllarini repo'ga qo'shing (kompyuter)
+  10. Loyihalarni serverga klonlang va PM2 bilan ishga tushiring (server)
+  11. Nginx konfiguratsiya qiling (server)
+  12. DNS A record'larini qo'shing (brauzer — registrar)
+  13. SSL sertifikat oling (server — DNS tarqalganidan keyin)
+  14. UFW firewall yoqing (server)
+  15. Admin yarating, test qiling (server + brauzer)
+  16. CI/CD test qiling (kompyuter)
+
+  Manzillar:
+  ► https://somad.uz              — Frontend (CRM interfeysi)
+  ► https://api.somad.uz/api/v1   — Backend API
+  ► https://api.somad.uz/api/v1/docs  — Swagger UI
+
+  Omad! 🚀
