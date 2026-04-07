@@ -10,24 +10,35 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Deploy to Server via SSH
-        uses: appleboy/ssh-action@master
+        uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
+          port: 22
+          timeout: 60s
           script: |
+            echo "=== Deploy boshlandi ==="
+
             # 1. Frontend papkasiga o'tish
             cd /var/www/crm-frontend
-            
+
             # 2. Yangi kodni tortish
             git pull origin main
-            
+
             # 3. Kutubxonalarni yangilash
             npm install
-            
-            # 4. Loyihani build qilish (Vite yoki React uchun)
+
+            # 4. Loyihani build qilish
             npm run build
-            
-            # 5. PM2 orqali restart berish (yoki Nginx ishlatayotgan bo'lsangiz shunchaki build kifoya)
-            pm2 restart crm-frontend --update-env
+
+            # 5. PM2 orqali restart
+            pm2 restart crm-frontend --update-env || pm2 start npm --name crm-frontend -- start
+
+            pm2 save
+
+            echo "=== Deploy tugadi ==="
