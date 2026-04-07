@@ -1,3 +1,5 @@
+CREATE USER educrm_user WITH PASSWORD '7777';
+
 # ═══════════════════════════════════════════════════════════════════
 #   EduCRM — AWS Ubuntu Serverga To'liq Deploy Qo'llanmasi
 #   Server: 44.222.116.206  |  Domen: somad.uz
