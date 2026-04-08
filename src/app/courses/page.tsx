@@ -57,26 +57,6 @@ const allQueries = useQueries({
 const isLoading = branchId ? singleQuery.isLoading : allQueries.isLoading;
 const courses: Course[] = branchId ? (singleQuery.data ?? []) : allQueries.data;
 
-  // // Bitta filial tanlanganda oddiy so'rov
-  // const singleBranchQuery = useQueries({
-  //   queries: branchId
-  //     ? [
-  //         {
-  //           queryKey: ["courses", branchId],
-  //           queryFn: () => coursesApi.getAll(branchId).then((r) => r.data.data),
-  //         },
-  //       ]
-  //     : [],
-  // });
-
-  // const isLoading = branchId
-  //   ? singleBranchQuery[0]?.isLoading
-  //   : allBranchQueries.some((q) => q.isLoading);
-
-  // const courses: Course[] = branchId
-  //   ? (singleBranchQuery[0]?.data ?? [])
-  //   : allBranchQueries.flatMap((q) => q.data ?? []);
-
   const createMutation = useMutationWithToast(
     (data: Partial<Course>) => coursesApi.create(data).then((r) => r.data.data),
     {
