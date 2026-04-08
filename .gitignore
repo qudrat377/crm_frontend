@@ -3,3 +3,6 @@
 node_modules
 Barcha_kodlar.txt
 package-lock.json
+.next
+out/
+build/
