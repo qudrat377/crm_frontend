@@ -1,5 +1,6 @@
 "use client";
-import { use, useState, useEffect } from "react"; // useEffect qo'shildi
+
+import { use, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { RouteGuard } from "@/components/layout/route-guard";
@@ -10,19 +11,15 @@ import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Modal } from "@/components/ui/modal";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Input } from "@/components/ui/input";
 import { useStudent, useGroups, useUsers } from "@/hooks/use-query";
 import { studentsApi } from "@/lib/api";
-import { formatCurrency, formatDate, formatMonth } from "@/lib/utils";
-import {
-  ArrowLeft, Phone, User as UserIcon, Calendar, MapPin, BookOpen,
-  CreditCard, Clock, TrendingUp, AlertCircle, Plus,
-  UserMinus, Check, Link as LinkIcon,
-  X,
-  Loader2,
-  Search
+import { formatDate } from "@/lib/utils";
+import { 
+  ArrowLeft, Phone, Calendar, MapPin, BookOpen, 
+  Plus, UserMinus, Link as LinkIcon, Search, Loader2 
 } from "lucide-react";
 import toast from "react-hot-toast";
-import { Input } from "@/components/ui/input";
 
 export default function StudentDetailPage({
   params,
@@ -35,92 +32,41 @@ export default function StudentDetailPage({
 
   const { data: studentData, isLoading, refetch } = useStudent(id);
   const { data: allGroups } = useGroups({ status: "active", limit: 100 });
-
+  
   const student = studentData as any;
 
   const [showAddGroupModal, setShowAddGroupModal] = useState(false);
   const [showLinkUserModal, setShowLinkUserModal] = useState(false);
-
   const [selectedGroupId, setSelectedGroupId] = useState("");
   const [processing, setProcessing] = useState(false);
-  const [removingGroupId, setRemovingGroupId] = useState<string | null>(null);
-
-  // --- QIDIRUV STATE-LARI ---
-  const [selectedUser, setSelectedUser] = useState<any>(null);
   const [userSearchTerm, setUserSearchTerm] = useState("");
   const [debouncedUserSearch, setDebouncedUserSearch] = useState("");
+  const [selectedUser, setSelectedUser] = useState<any>(null);
 
-  // Debounce mantiqi (500ms kutib keyin so'rov yuboradi)
   useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedUserSearch(userSearchTerm);
-    }, 500);
+    const handler = setTimeout(() => setDebouncedUserSearch(userSearchTerm), 500);
     return () => clearTimeout(handler);
   }, [userSearchTerm]);
 
-  const { data: usersData, isLoading: isUsersLoading } = useUsers({
-    search: debouncedUserSearch,
-    limit: 10
+  const { data: usersData, isLoading: isUsersLoading } = useUsers({ 
+    search: debouncedUserSearch, 
+    limit: 10 
   });
 
-  if (isLoading) {
-    return (
-      <RouteGuard allowedRoles={["admin", "manager"]}>
-        <DashboardLayout>
-          <div className="space-y-4">
-            {[...Array(3)].map((_, i) => (
-              <div key={i} className="h-32 bg-surface-100 dark:bg-surface-800 rounded-2xl animate-pulse" />
-            ))}
-          </div>
-        </DashboardLayout>
-      </RouteGuard>
-    );
-  }
-
-  if (!student) {
-    return (
-      <RouteGuard allowedRoles={["admin", "manager"]}>
-        <DashboardLayout>
-          <div className="text-center py-20">
-            <p className="text-surface-500 dark:text-surface-400">O'quvchi topilmadi</p>
-            <Button variant="ghost" onClick={() => router.back()} className="mt-4">Orqaga</Button>
-          </div>
-        </DashboardLayout>
-      </RouteGuard>
-    );
-  }
+  if (isLoading) return <div className="p-8 text-center flex justify-center"><Loader2 className="animate-spin" /></div>;
+  if (!student) return <div className="p-8 text-center text-surface-500">O'quvchi topilmadi</div>;
 
   const activeGroups = student.groupStudents?.filter((gs: any) => gs.isActive) ?? [];
-  const payments = student.payments ?? [];
-  const availableGroups = (allGroups?.data ?? []).filter(
+  const availableGroups = allGroups?.data?.filter(
     (g: any) => !activeGroups.some((ag: any) => ag.groupId === g.id)
-  );
+  ) ?? [];
 
-  // --- HANDLERS ---
-
-  const handleLinkUser = async () => {
-    // selectedUser.id borligini tekshiramiz
-    if (!selectedUser?.id) return toast.error("Userni tanlang");
+  // 1. Guruhga qo'shish (assignToGroup deb o'zgartirildi)
+  const handleAddGroup = async () => {
+    if (!selectedGroupId) return;
     setProcessing(true);
     try {
-      await studentsApi.update(id, { userId: selectedUser.id } as any);
-      toast.success("Login ma'lumotlari biriktirildi");
-      setShowLinkUserModal(false);
-      setSelectedUser(null);
-      setUserSearchTerm("");
-      refetch();
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message ?? "Xatolik yuz berdi");
-    } finally {
-      setProcessing(false);
-    }
-  };
-
-  const handleAddToGroup = async () => {
-    if (!selectedGroupId) return toast.error("Guruhni tanlang");
-    setProcessing(true);
-    try {
-      await studentsApi.assignToGroup(id, selectedGroupId);
+      await studentsApi.assignToGroup(id, selectedGroupId); // <--- SHU YER TUZATILDI
       toast.success("O'quvchi guruhga qo'shildi");
       setShowAddGroupModal(false);
       setSelectedGroupId("");
@@ -132,176 +78,470 @@ export default function StudentDetailPage({
     }
   };
 
-  const handleRemoveFromGroup = async (groupId: string, groupName: string) => {
-    if (!confirm(`"${groupName}" guruhidan chiqarilsinmi?`)) return;
-    setRemovingGroupId(groupId);
+  // 2. User biriktirish
+  const handleLinkUser = async () => {
+    if (!selectedUser?.id) return;
+    setProcessing(true);
     try {
-      await studentsApi.removeFromGroup(id, groupId);
-      toast.success("O'quvchi guruhdan chiqarildi");
+      await studentsApi.update(id, { userId: selectedUser.id }); 
+      toast.success("Foydalanuvchi hisobi biriktirildi");
+      setShowLinkUserModal(false);
       refetch();
     } catch (err: any) {
-      toast.error(err?.response?.data?.message ?? "Xatolik yuz berdi");
+      toast.error("Xatolik yuz berdi");
     } finally {
-      setRemovingGroupId(null);
+      setProcessing(false);
     }
   };
 
   return (
     <RouteGuard allowedRoles={["admin", "manager"]}>
       <DashboardLayout>
-        <div className="space-y-5">
-          <Button
-            variant="ghost"
-            size="sm"
-            icon={<ArrowLeft className="w-4 h-4" />}
-            onClick={() => router.back()}
-          >
-            Orqaga
+        <div className="space-y-6">
+          <Button variant="ghost" size="sm" onClick={() => router.back()}>
+            <ArrowLeft className="w-4 h-4 mr-1" /> Orqaga
           </Button>
 
-          {/* Alert */}
-          {!student.userId && (
-            <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-center justify-between">
-              <div className="flex items-center gap-3 text-amber-700">
-                <AlertCircle className="w-5 h-5" />
-                <p className="text-sm font-medium">Bu o'quvchi CRMga kira olishi uchun User biriktirish shart.</p>
-              </div>
-              <Button 
-                size="sm" 
-                variant="outline" 
-                onClick={() => setShowLinkUserModal(true)}
-              >
-                User biriktirish
-              </Button>
-            </div>
-          )}
-
-          <Card>
-            <div className="flex items-start gap-5">
-              <Avatar name={student.fullName} size="lg" className="w-16 h-16 text-xl" />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <h2 className="text-xl font-bold text-surface-900 dark:text-surface-50">{student.fullName}</h2>
-                    <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">{student.branch?.name}</p>
-                  </div>
-                  <Badge status={student.status} />
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
-                  <div className="flex items-center gap-2 text-sm text-surface-600 dark:text-surface-400">
-                    <Phone className="w-4 h-4" /> {student.phone || "—"}
-                  </div>
-                  {student.user && (
-                    <div className="flex items-center gap-2 text-sm text-brand-600 font-semibold truncate">
-                      <LinkIcon className="w-4 h-4" /> {student.user.email}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="space-y-6">
+              <Card>
+                <div className="flex flex-col items-center text-center p-4">
+                  <Avatar name={student.fullName} size="lg" className="w-20 h-20 text-2xl" />
+                  <h2 className="mt-4 text-xl font-bold">{student.fullName}</h2>
+                  <Badge 
+                    status={student.status || "default"} 
+                    className="mt-2" 
+                  />
+                  
+                  <div className="w-full mt-6 space-y-3 text-left">
+                    <div className="flex items-center gap-3 text-sm text-surface-600">
+                      <Phone className="w-4 h-4" /> {student.phone || "Noma'lum"}
                     </div>
+                    <div className="flex items-center gap-3 text-sm text-surface-600">
+                      <MapPin className="w-4 h-4" /> {student.address || "Manzil yo'q"}
+                    </div>
+                  </div>
+
+                  {!student.userId && (
+                    <Button 
+                      variant="outline" 
+                      className="mt-6 w-full" // <--- fullWidth O'RNIGA w-full QO'YILDI
+                      size="sm"
+                      onClick={() => setShowLinkUserModal(true)}
+                    >
+                      <LinkIcon className="w-4 h-4 mr-2" /> Login biriktirish
+                    </Button>
                   )}
                 </div>
-              </div>
+              </Card>
             </div>
-          </Card>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-             {/* Guruhlar va To'lovlar qismi (O'zgarishsiz qoldi) */}
-             {/* ... */}
+            <div className="lg:col-span-2">
+              <Card>
+                <CardHeader 
+                  title="Guruhlar" 
+                  action={
+                    <Button size="sm" onClick={() => setShowAddGroupModal(true)}>
+                      <Plus className="w-4 h-4 mr-1" /> Qo'shish
+                    </Button>
+                  }
+                />
+                <div className="divide-y">
+                  {activeGroups.length === 0 ? (
+                    <div className="p-8 text-center text-surface-400">Guruhlar mavjud emas</div>
+                  ) : (
+                    activeGroups.map((gs: any) => (
+                      <div key={gs.id} className="p-4 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <BookOpen className="w-5 h-5 text-brand-600" />
+                          <div>
+                            <p className="font-medium">{gs.group?.name}</p>
+                            <p className="text-xs text-surface-500">{gs.group?.scheduleDays}</p>
+                          </div>
+                        </div>
+                        <Button variant="ghost" size="sm" className="text-danger-500">
+                          <UserMinus className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </Card>
+            </div>
           </div>
         </div>
 
-        {/* Modal: User Biriktirish (To'g'irlangan qismi) */}
-        <Modal
-          open={showLinkUserModal}
-          onClose={() => { setShowLinkUserModal(false); setSelectedUser(null); setUserSearchTerm(""); }}
-          title="Foydalanuvchini Biriktirish"
-          size="sm"
-          footer={
-            <>
-              <Button variant="outline" onClick={() => setShowLinkUserModal(false)}>Bekor qilish</Button>
-              <Button onClick={handleLinkUser} loading={processing} disabled={!selectedUser}>Biriktirish</Button>
-            </>
-          }
-        >
-          <div className="space-y-4">
-            <p className="text-sm text-surface-500 dark:text-surface-400">Tizimdagi mavjud foydalanuvchini (email orqali) qidirib biriktiring:</p>
-            
-            <div className="p-4 bg-brand-50 border border-brand-100 rounded-2xl space-y-3 relative">
-              <div className="flex items-center gap-2 text-brand-700">
-                <UserIcon className="w-4 h-4" />
-                <span className="text-sm font-semibold">Qidiruv</span>
-              </div>
-              
-              {selectedUser ? (
-                <div className="flex items-center justify-between p-2 bg-white dark:bg-surface-900 border border-brand-200 rounded-lg">
-                  <div className="flex flex-col">
-                    <span className="text-sm font-medium">{selectedUser.email}</span>
-                    <span className="text-[10px] text-surface-400 dark:text-surface-500 uppercase">{selectedUser.role}</span>
+        {/* User Link Modal */}
+        <Modal open={showLinkUserModal} onClose={() => setShowLinkUserModal(false)} title="Login biriktirish">
+          <div className="space-y-4 pt-2">
+            <Input 
+              placeholder="Email orqali qidirish..." 
+              value={userSearchTerm} 
+              onChange={(e) => setUserSearchTerm(e.target.value)}
+              // prefix={<Search className="w-4 h-4" />}
+            />
+            <div className="max-h-60 overflow-y-auto border rounded-xl">
+              {isUsersLoading ? <div className="p-4 text-center"><Loader2 className="animate-spin inline" /></div> : 
+                usersData?.data?.map((u: any) => (
+                  <div 
+                    key={u.id} 
+                    onClick={() => setSelectedUser(u)}
+                    className={`p-3 cursor-pointer flex justify-between ${selectedUser?.id === u.id ? "bg-brand-50" : "hover:bg-surface-50"}`}
+                  >
+                    <span className="text-sm">{u.email}</span>
+                    <Badge status={selectedUser?.id === u.id ? "success" : "default"} />
                   </div>
-                  <Button variant="ghost" size="sm" onClick={() => setSelectedUser(null)}>
-                    <X className="w-4 h-4 text-danger-500" />
-                  </Button>
-                </div>
-              ) : (
-                <div className="relative">
-                  <Input
-                    placeholder="Email orqali qidirish..."
-                    value={userSearchTerm}
-                    onChange={(e) => setUserSearchTerm(e.target.value)}
-                    icon={isUsersLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-                  />
-                  {/* Qidiruv natijalari dropdowni */}
-                  {userSearchTerm.length > 1 && usersData?.data && (
-                    <div className="absolute z-50 w-full mt-1 bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-700 rounded-lg shadow-xl max-h-48 overflow-auto">
-                      {usersData.data.length === 0 ? (
-                        <div className="p-3 text-sm text-surface-400 dark:text-surface-500 text-center">Natija topilmadi</div>
-                      ) : (
-                        usersData.data.map((u: any) => (
-                          <div
-                            key={u.id}
-                            className="p-3 hover:bg-brand-50 cursor-pointer border-b last:border-0 flex justify-between items-center"
-                            onClick={() => { setSelectedUser(u); setUserSearchTerm(""); }}
-                          >
-                            <span className="text-sm">{u.email}</span>
-                            <Badge label="Tanlash" status="default" size="sm" className="text-[10px]" />
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
+                ))
+              }
             </div>
+            <Button className="w-full" disabled={!selectedUser} loading={processing} onClick={handleLinkUser}>
+              Saqlash
+            </Button>
           </div>
         </Modal>
 
-        {/* Modal: Guruhga Qo'shish */}
-        <Modal
-          open={showAddGroupModal}
-          onClose={() => setShowAddGroupModal(false)}
-          title="Guruhga qo'shish"
-          size="sm"
-          footer={
-            <>
-              <Button variant="outline" onClick={() => setShowAddGroupModal(false)}>Bekor qilish</Button>
-              <Button onClick={handleAddToGroup} loading={processing} disabled={!selectedGroupId}>Qo'shish</Button>
-            </>
-          }
-        >
-          <div className="space-y-4">
+        {/* Add Group Modal */}
+        <Modal open={showAddGroupModal} onClose={() => setShowAddGroupModal(false)} title="Guruhga qo'shish">
+          <div className="space-y-4 pt-4">
             <Select
               label="Guruhni tanlang"
+              options={[
+                { value: "", label: "Tanlang..." },
+                ...(availableGroups.map((g: any) => ({ value: g.id, label: g.name })) || [])
+              ]}
               value={selectedGroupId}
               onChange={(e) => setSelectedGroupId(e.target.value)}
-              options={[
-                { value: "", label: "Guruhni tanlang..." },
-                ...availableGroups.map((g: any) => ({ value: g.id, label: `${g.name} (${g.scheduleDays})` }))
-              ]}
             />
+            <Button className="w-full" loading={processing} onClick={handleAddGroup}>Qo'shish</Button>
           </div>
         </Modal>
-
       </DashboardLayout>
     </RouteGuard>
   );
 }
+
+// "use client";
+// import { use, useState, useEffect } from "react"; // useEffect qo'shildi
+// import { useRouter } from "next/navigation";
+// import { DashboardLayout } from "@/components/layout/dashboard-layout";
+// import { RouteGuard } from "@/components/layout/route-guard";
+// import { Card, CardHeader } from "@/components/ui/card";
+// import { Badge } from "@/components/ui/badge";
+// import { Avatar } from "@/components/ui/avatar";
+// import { Button } from "@/components/ui/button";
+// import { Select } from "@/components/ui/select";
+// import { Modal } from "@/components/ui/modal";
+// import { EmptyState } from "@/components/ui/empty-state";
+// import { useStudent, useGroups, useUsers } from "@/hooks/use-query";
+// import { studentsApi } from "@/lib/api";
+// import { formatCurrency, formatDate, formatMonth } from "@/lib/utils";
+// import {
+//   ArrowLeft, Phone, User as UserIcon, Calendar, MapPin, BookOpen,
+//   CreditCard, Clock, TrendingUp, AlertCircle, Plus,
+//   UserMinus, Check, Link as LinkIcon,
+//   X,
+//   Loader2,
+//   Search
+// } from "lucide-react";
+// import toast from "react-hot-toast";
+// import { Input } from "@/components/ui/input";
+
+// export default function StudentDetailPage({
+//   params,
+// }: {
+//   params: Promise<{ id: string }>;
+// }) {
+//   const resolvedParams = use(params);
+//   const id = resolvedParams.id;
+//   const router = useRouter();
+
+//   const { data: studentData, isLoading, refetch } = useStudent(id);
+//   const { data: allGroups } = useGroups({ status: "active", limit: 100 });
+
+//   const student = studentData as any;
+
+//   const [showAddGroupModal, setShowAddGroupModal] = useState(false);
+//   const [showLinkUserModal, setShowLinkUserModal] = useState(false);
+
+//   const [selectedGroupId, setSelectedGroupId] = useState("");
+//   const [processing, setProcessing] = useState(false);
+//   const [removingGroupId, setRemovingGroupId] = useState<string | null>(null);
+
+//   // --- QIDIRUV STATE-LARI ---
+//   const [selectedUser, setSelectedUser] = useState<any>(null);
+//   const [userSearchTerm, setUserSearchTerm] = useState("");
+//   const [debouncedUserSearch, setDebouncedUserSearch] = useState("");
+
+//   // Debounce mantiqi (500ms kutib keyin so'rov yuboradi)
+//   useEffect(() => {
+//     const handler = setTimeout(() => {
+//       setDebouncedUserSearch(userSearchTerm);
+//     }, 500);
+//     return () => clearTimeout(handler);
+//   }, [userSearchTerm]);
+
+//   const { data: usersData, isLoading: isUsersLoading } = useUsers({
+//     search: debouncedUserSearch,
+//     limit: 10
+//   });
+
+//   if (isLoading) {
+//     return (
+//       <RouteGuard allowedRoles={["admin", "manager"]}>
+//         <DashboardLayout>
+//           <div className="space-y-4">
+//             {[...Array(3)].map((_, i) => (
+//               <div key={i} className="h-32 bg-surface-100 dark:bg-surface-800 rounded-2xl animate-pulse" />
+//             ))}
+//           </div>
+//         </DashboardLayout>
+//       </RouteGuard>
+//     );
+//   }
+
+//   if (!student) {
+//     return (
+//       <RouteGuard allowedRoles={["admin", "manager"]}>
+//         <DashboardLayout>
+//           <div className="text-center py-20">
+//             <p className="text-surface-500 dark:text-surface-400">O'quvchi topilmadi</p>
+//             <Button variant="ghost" onClick={() => router.back()} className="mt-4">Orqaga</Button>
+//           </div>
+//         </DashboardLayout>
+//       </RouteGuard>
+//     );
+//   }
+
+//   const activeGroups = student.groupStudents?.filter((gs: any) => gs.isActive) ?? [];
+//   const payments = student.payments ?? [];
+//   const availableGroups = (allGroups?.data ?? []).filter(
+//     (g: any) => !activeGroups.some((ag: any) => ag.groupId === g.id)
+//   );
+
+//   // --- HANDLERS ---
+
+//   const handleLinkUser = async () => {
+//     // selectedUser.id borligini tekshiramiz
+//     if (!selectedUser?.id) return toast.error("Userni tanlang");
+//     setProcessing(true);
+//     try {
+//       await studentsApi.update(id, { userId: selectedUser.id } as any);
+//       toast.success("Login ma'lumotlari biriktirildi");
+//       setShowLinkUserModal(false);
+//       setSelectedUser(null);
+//       setUserSearchTerm("");
+//       refetch();
+//     } catch (err: any) {
+//       toast.error(err?.response?.data?.message ?? "Xatolik yuz berdi");
+//     } finally {
+//       setProcessing(false);
+//     }
+//   };
+
+//   const handleAddToGroup = async () => {
+//     if (!selectedGroupId) return toast.error("Guruhni tanlang");
+//     setProcessing(true);
+//     try {
+//       await studentsApi.assignToGroup(id, selectedGroupId);
+//       toast.success("O'quvchi guruhga qo'shildi");
+//       setShowAddGroupModal(false);
+//       setSelectedGroupId("");
+//       refetch();
+//     } catch (err: any) {
+//       toast.error(err?.response?.data?.message ?? "Xatolik yuz berdi");
+//     } finally {
+//       setProcessing(false);
+//     }
+//   };
+
+//   const handleRemoveFromGroup = async (groupId: string, groupName: string) => {
+//     if (!confirm(`"${groupName}" guruhidan chiqarilsinmi?`)) return;
+//     setRemovingGroupId(groupId);
+//     try {
+//       await studentsApi.removeFromGroup(id, groupId);
+//       toast.success("O'quvchi guruhdan chiqarildi");
+//       refetch();
+//     } catch (err: any) {
+//       toast.error(err?.response?.data?.message ?? "Xatolik yuz berdi");
+//     } finally {
+//       setRemovingGroupId(null);
+//     }
+//   };
+
+//   return (
+//     <RouteGuard allowedRoles={["admin", "manager"]}>
+//       <DashboardLayout>
+//         <div className="space-y-5">
+//           <Button
+//             variant="ghost"
+//             size="sm"
+//             icon={<ArrowLeft className="w-4 h-4" />}
+//             onClick={() => router.back()}
+//           >
+//             Orqaga
+//           </Button>
+
+//           {/* Alert */}
+//           {!student.userId && (
+//             <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-center justify-between">
+//               <div className="flex items-center gap-3 text-amber-700">
+//                 <AlertCircle className="w-5 h-5" />
+//                 <p className="text-sm font-medium">Bu o'quvchi CRMga kira olishi uchun User biriktirish shart.</p>
+//               </div>
+//               <Button 
+//                 size="sm" 
+//                 variant="outline" 
+//                 onClick={() => setShowLinkUserModal(true)}
+//               >
+//                 User biriktirish
+//               </Button>
+//             </div>
+//           )}
+
+//           <Card>
+//             <div className="flex items-start gap-5">
+//               <Avatar name={student.fullName} size="lg" className="w-16 h-16 text-xl" />
+//               <div className="flex-1 min-w-0">
+//                 <div className="flex items-start justify-between gap-4">
+//                   <div>
+//                     <h2 className="text-xl font-bold text-surface-900 dark:text-surface-50">{student.fullName}</h2>
+//                     <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">{student.branch?.name}</p>
+//                   </div>
+//                   <Badge status={student.status} />
+//                 </div>
+//                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+//                   <div className="flex items-center gap-2 text-sm text-surface-600 dark:text-surface-400">
+//                     <Phone className="w-4 h-4" /> {student.phone || "—"}
+//                   </div>
+//                   {student.user && (
+//                     <div className="flex items-center gap-2 text-sm text-brand-600 font-semibold truncate">
+//                       <LinkIcon className="w-4 h-4" /> {student.user.email}
+//                     </div>
+//                   )}
+//                 </div>
+//               </div>
+//             </div>
+//           </Card>
+
+//           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+//              {/* Guruhlar va To'lovlar qismi (O'zgarishsiz qoldi) */}
+//              {/* ... */}
+//           </div>
+//         </div>
+
+//         {/* Modal: User Biriktirish (To'g'irlangan qismi) */}
+//         <Modal
+//           open={showLinkUserModal}
+//           onClose={() => { setShowLinkUserModal(false); setSelectedUser(null); setUserSearchTerm(""); }}
+//           title="Foydalanuvchini Biriktirish"
+//           size="sm"
+//           footer={
+//             <>
+//               <Button variant="outline" onClick={() => setShowLinkUserModal(false)}>Bekor qilish</Button>
+//               <Button onClick={handleLinkUser} loading={processing} disabled={!selectedUser}>Biriktirish</Button>
+//             </>
+//           }
+//         >
+//           <div className="space-y-4">
+//             <p className="text-sm text-surface-500 dark:text-surface-400">Tizimdagi mavjud foydalanuvchini (email orqali) qidirib biriktiring:</p>
+            
+//             <div className="p-4 bg-brand-50 border border-brand-100 rounded-2xl space-y-3 relative">
+//               <div className="flex items-center gap-2 text-brand-700">
+//                 <UserIcon className="w-4 h-4" />
+//                 <span className="text-sm font-semibold">Qidiruv</span>
+//               </div>
+              
+//               {selectedUser ? (
+//                 <div className="flex items-center justify-between p-2 bg-white dark:bg-surface-900 border border-brand-200 rounded-lg">
+//                   <div className="flex flex-col">
+//                     <span className="text-sm font-medium">{selectedUser.email}</span>
+//                     <span className="text-[10px] text-surface-400 dark:text-surface-500 uppercase">{selectedUser.role}</span>
+//                   </div>
+//                   <Button variant="ghost" size="sm" onClick={() => setSelectedUser(null)}>
+//                     <X className="w-4 h-4 text-danger-500" />
+//                   </Button>
+//                 </div>
+//               ) : (
+//                 <div className="relative">
+//                   <Input
+//                     placeholder="Email orqali qidirish..."
+//                     value={userSearchTerm}
+//                     onChange={(e) => setUserSearchTerm(e.target.value)}
+//                     icon={isUsersLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+//                   />
+//                   {/* Qidiruv natijalari dropdowni */}
+//                   {userSearchTerm.length > 1 && usersData?.data && (
+//                     <div className="absolute z-50 w-full mt-1 bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-700 rounded-lg shadow-xl max-h-48 overflow-auto">
+//                       {usersData.data.length === 0 ? (
+//                         <div className="p-3 text-sm text-surface-400 dark:text-surface-500 text-center">Natija topilmadi</div>
+//                       ) : (
+//                         usersData.data.map((u: any) => (
+//                           <div
+//                             key={u.id}
+//                             className="p-3 hover:bg-brand-50 cursor-pointer border-b last:border-0 flex justify-between items-center"
+//                             onClick={() => { setSelectedUser(u); setUserSearchTerm(""); }}
+//                           >
+//                             <span className="text-sm">{u.email}</span>
+//                             <Badge label="Tanlash" status="default" size="sm" className="text-[10px]" />
+//                           </div>
+//                         ))
+//                       )}
+//                     </div>
+//                   )}
+//                 </div>
+//               )}
+//             </div>
+//           </div>
+//         </Modal>
+
+//         {/* Modal: Guruhga Qo'shish */}
+//         <Modal
+//           open={showAddGroupModal}
+//           onClose={() => setShowAddGroupModal(false)}
+//           title="Guruhga qo'shish"
+//           size="sm"
+//           footer={
+//             <>
+//               <Button variant="outline" onClick={() => setShowAddGroupModal(false)}>Bekor qilish</Button>
+//               <Button onClick={handleAddToGroup} loading={processing} disabled={!selectedGroupId}>Qo'shish</Button>
+//             </>
+//           }
+//         >
+//           <div className="space-y-4">
+//             <Select
+//               label="Guruhni tanlang"
+//               value={selectedGroupId}
+//               onChange={(e) => setSelectedGroupId(e.target.value)}
+//               options={[
+//                 { value: "", label: "Guruhni tanlang..." },
+//                 ...availableGroups.map((g: any) => ({ value: g.id, label: `${g.name} (${g.scheduleDays})` }))
+//               ]}
+//             />
+//           </div>
+//         </Modal>
+
+//       </DashboardLayout>
+//     </RouteGuard>
+//   );
+// }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 // "use client";
 // import { use, useState } from "react";

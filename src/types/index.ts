@@ -74,6 +74,7 @@ export interface Student {
   address?: string; status: StudentStatus; createdAt: string;
   branch?: Branch; groupStudents?: GroupStudent[];
   paymentSummary?: { totalPaid: number; totalDebt: number };
+  userId?: string;
 }
 
 export interface Teacher {
