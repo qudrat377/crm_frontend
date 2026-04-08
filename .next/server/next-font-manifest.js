@@ -1,1 +1,0 @@
-self.__NEXT_FONT_MANIFEST="{\"pages\":{\"/_app\":[\"static/media/4cf2300e9c8272f7-s.p.woff2\"],\"/_error\":[\"static/media/4cf2300e9c8272f7-s.p.woff2\"]},\"app\":{},\"appUsingSizeAdjust\":false,\"pagesUsingSizeAdjust\":true}"
